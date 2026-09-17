@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 import random
 import time
 import customtkinter as ctk
@@ -6,7 +7,7 @@ import os
 from os import system as system
 import json
 import sys
-import obxn
+import obnx
 
 THEME_BG = "#f0f0f0"
 THEME_FG = "#1a1a1a"
@@ -16,13 +17,69 @@ THEME_FIELD_BG = "#e23232"
 THEME_FONT_FAMILY = "Helvetica"
 THEME_FONT_SIZE = 15
 
+
+
+class ToolTip:
+    """Small hover tooltip. tkinter has no built-in one."""
+
+    def __init__(self, widget, text, delay=500):
+        self.widget = widget
+        self.text = text
+        self.delay = delay
+        self.tip = None
+        self._job = None
+        # add="+" so this never replaces bindings the widget already has.
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+
+    def _schedule(self, _event=None):
+        self._cancel()
+        self._job = self.widget.after(self.delay, self._show)
+
+    def _cancel(self):
+        if self._job is not None:
+            self.widget.after_cancel(self._job)
+            self._job = None
+
+    def _show(self):
+        if self.tip is not None:
+            return
+        x = self.widget.winfo_rootx() + 12
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+        self.tip = tk.Toplevel(self.widget)
+        # No title bar or border — it should look like a tooltip, not a window.
+        self.tip.wm_overrideredirect(True)
+        self.tip.wm_geometry(f"+{x}+{y}")
+        tk.Label(
+            self.tip,
+            text=self.text,
+            justify="left",
+            background="#ffffe0",
+            relief="solid",
+            borderwidth=1,
+            padx=6,
+            pady=3,
+        ).pack()
+
+    def _hide(self, _event=None):
+        self._cancel()
+        if self.tip is not None:
+            self.tip.destroy()
+            self.tip = None
+
+
 class window:
-    def __init__(self, configure):
+    def __init__(self, configure, imports=None):
+        #if parent is None:
+        self.imports=imports
         self.root = ctk.CTk()
         self.configuration = configure
         self.configure()
 
-        self.root.mainloop()
+
+        #self.root.mainloop()
+
 
     def configure(self):
         self.configuration(self)
@@ -34,6 +91,11 @@ def config_1(self):
     return(self.root)
 
 def config_2(self):
+    imports = self.imports
+    questions = imports[0]
+    answers = imports[1]
+    falseanswer1 = imports[2]
+    falseanswer2 = imports[3]
     self.root.title("Do Some Work! D:")
 
     height = self.root.winfo_screenheight()
@@ -43,45 +105,54 @@ def config_2(self):
     width = random.randint(int(height / 3), int(height))
 
     height, width = int(height), int(width)
-    randomOffset1 = random.randint(-3000, 3000)
-    randomOffset2 = random.randint(-3000, 3000)
+    randomOffset1 = random.randint(-height, height)
+    randomOffset2 = random.randint(-width, width)
 
     self.root.geometry(f"{height}x{width}+{randomOffset1}+{randomOffset2}")
     self.root.minsize(width, height)
 
-    questions = ["What is 5 squared", "When was slavery abolished within England?", "Find the Radius of: \n X squared + Y squared = 25", 
-                 "What was the name of the largest death camp during WW2?"]
-    answers = ["25", "1807", "5", "Auchwitz"]
-    falseanswer1 = ["35", "1833", "6", "Poland"]
-    falseanswer2 = ["20", "1901", "10", "Hitler"]
+    if questions is None:
+        questions = ["What is 5 squared", "When was slavery abolished within England?", "Find the Radius of: \n X squared + Y squared = 25", 
+                     "What was the name of the largest death camp during WW2?"]
+        answers = ["25", "1807", "5", "Auchwitz"]
+        falseanswer1 = ["35", "1833", "6", "Poland"]
+        falseanswer2 = ["20", "1901", "10", "Hitler"]
     num = random.randint(0, 3)
+    self.questionnum = num
     answersCache = [answers[num], falseanswer1[num], falseanswer2[num]]
-    print(answersCache)
     random.shuffle(answersCache)
     answersCache = ["Click to select answer"] + answersCache
-    print(answersCache)
 
-    def on_select(answer, correctanswer, self, command):
+    def on_select(answer, correctanswer, self, entry):
         correct = False
-        command = command.get()
-        print(command)
+        entry = entry.get()
+        print(entry)
         if answer == correctanswer:
             correct = True
-        self.root.destroy()
-        if command == "adminroot":
-            print(command)
+        if entry == "adminroot":
+            print(entry)
             app = window(config_3)
             return
         if not correct:
             app = window(config_2)
+            self.root.destroy()
+            app.root.mainloop()
+            return
+        self.root.destroy()
+
+    #todo fix the question applying
 
 
-
-    answer = None
     ctk.CTkLabel(self.root, text="Complete This Question To Continue About Your Work:", font=ctk.CTkFont(family=THEME_FONT_FAMILY, size=THEME_FONT_SIZE)).pack()
     ctk.CTkLabel(self.root, text=questions[num], font=ctk.CTkFont(family=THEME_FONT_FAMILY, size=THEME_FONT_SIZE)).pack()
-    ctk.CTkComboBox(self.root, width=1000  ,values=answersCache, variable=answer, command=lambda answer: on_select(answer, answers[num], self, entry), font=ctk.CTkFont(family=THEME_FONT_FAMILY, size=THEME_FONT_SIZE)).pack()
-    entry = ctk.CTkEntry(self.root, width=200, placeholder_text="Commandline")
+    answer = tk.StringVar()
+    entry = tk.Entry(self.root, width=20)
+    cmb = ctk.CTkComboBox(self.root, 
+                          width=200,
+                          values=answersCache,
+                          variable=answer,
+                          command=lambda chosen: on_select(chosen, answers[num], self, entry), font=ctk.CTkFont(family=THEME_FONT_FAMILY, size=THEME_FONT_SIZE))
+    cmb.pack()
     entry.pack()
 
     self.root.attributes("-topmost", True)
@@ -95,29 +166,103 @@ def config_3(self):
     self.button1 = tk.Button(self.root, text="Terminate", command=terminate).pack()
 
 def setup_menu(self):
+    #total_questions, min_delay, max_delay, questions, answers, fA1, fA2
+    def submit(total_questions, min_delay, max_delay, questions, answers, fA1, fA2):
+        for i in range(total_questions):
+            question = window(lambda root: config_2(root, answers=answers, questions=questions, falseanswer1=fA1, falseanswer2=fA2))
+            if min_delay and max_delay:
+                delay = random.randint(min_delay, max_delay)
+            elif min_delay:
+                delay = min_delay
+            elif max_delay:
+                delay = max_delay
+            else:
+                delay = 60
+            time.sleep(delay)
+
+    def entry_fields(*args):
+        x = self.entry1.get()
+        y = combobox1.get()
+        z = combobox2.get()
+        w = combobox3.get()
+        if x and y and z and w:
+            button2.config(state="active")
+
+
     def open_questionmenu():
-        window(add_questions)
+        question_get = window(add_questions)
+
+    def get_questions():
+
+        try:
+            questions, answers, wrong_answer1, wrong_answer2 = obnx.load(self.entry1.get())
+        except FileNotFoundError:
+            print("ERROR: file does not exist")
+            return
+        except PermissionError:
+            print("ERROR: insufficient permissions to open file")
+            return
+        exports = [questions, answers, wrong_answer1, wrong_answer2]
+        if questions and answers and wrong_answer1 and wrong_answer2:
+            #submit(min_delay=int(combobox3.get()), max_delay=int(combobox2.get()), )
+            self.min_del = int(combobox3.get())
+            self.max_del = int(combobox2.get())
+            self.total = int(combobox1.get())
+            self.exports=exports
+            self.root.destroy()
+#            for i in range(total):
+#                question = window(config_2, exports)
+#                delay = random.randint(min_del, max_del)
+#                time.sleep(delay)
+            
+        return
+    
+
 
     self.root.title("Setup Menu")
-    self.root.minsize(1000, 1500)
+    self.root.minsize(1350, 1500)
 
-    label1 = tk.Label(text= "Please enter the name of a .obnx file, leave blank to use default questions", anchor="e").place(x=50, y=50)
+    label1 = tk.Label(text="Please select a studypack.obnx below:", anchor="c")
+    label1.place(x=50, y=50, height=40, width=600)
 
     self.entry1 = tk.Entry()
-    self.entry1.place(x=50, height=40, width=600, y=100)
+    self.entry1.place(x=50, height=40, width=600, y=90)
+    self.entry1.Tooltip = ToolTip(widget=self.entry1, text="e.g. user/folder/obnxpack.obxn", delay=10)
 
-    button1 = tk.Button(text="Add to or Create a new question pack", command=open_questionmenu).place(x=50, height=40, width=600, y=150)
+    button1 = tk.Button(text="Add to or Create a new question pack", command=open_questionmenu)
+    button1.place(x=700, height=80, width=600, y=50)
 
+    label2 = tk.Label(text="Or", anchor="e")
+    label2.place(x=655, height=80, width=40, y=50)
+
+    label3 = tk.Label(text="Select total questions to answer:", anchor="w")
+    label3.place(y=150, x=50, height=80, width=600)
+
+    combobox1 = tk.Entry(self.root)
+    combobox1.place(y=150, x=700, height=80, width=600)
+
+    label4 = tk.Label(text="Select max delay between questions (seconds):", anchor="w")
+    label4.place(y=250, x=50, height=80, width=600)
+
+    combobox2 = tk.Entry(self.root)
+    combobox2.place(y=250, x=700, height=80, width=600)
+
+    label5 = tk.Label(text="Select min delay between questions (seconds):", anchor="w")
+    label5.place(y=350, x=50, height=80, width=600)
+
+    combobox3 = tk.Entry(self.root)
+    combobox3.place(y=350, x=700, height=80, width=600)
+
+    self.entry1.bind("<KeyRelease>", entry_fields)
+    combobox1.bind("<KeyRelease>", entry_fields)
+    combobox2.bind("<KeyRelease>", entry_fields)
+    combobox3.bind("<KeyRelease>", entry_fields)
+
+    button2 = tk.Button(text="Submit", command=get_questions, state="disabled")
+    button2.place(height=80, y=550, x=50, width=1250)
 
 
 def add_questions(self):
-
-    def disable_button():
-        self.button.config(state=tk.DISABLED)
-
-    def enable_button():
-        self.button.config(state=tk.NORMAL)
-
     def submit():
         entry1 = self.entry1.get()
         entry2 = self.entry2.get()
@@ -131,7 +276,7 @@ def add_questions(self):
         self.entry4.delete(0, tk.END)
         self.button.config(state="disabled")
 
-        obxn.dump(entry5, entry1, entry2, entry3, entry4)
+        obnx.dump(entry5, entry1, entry2, entry3, entry4)
 
 
     def entry_fields(*args):
@@ -146,7 +291,7 @@ def add_questions(self):
 
     def printanswr(*args):
         toPrint = self.entry1.get()
-        print(toPrint)
+
 
     self.root.title("Add Questions!")
     self.root.minsize(1000, 1500)
@@ -204,17 +349,26 @@ def add_questions(self):
     self.button = tk.Button(master=self.root,state="disabled", text="Submit", command=submit)
     self.button.place(x=50, y=600, width=800)
 
-
+print()
 
 
 
 
 
 setup = window(setup_menu)
-#for i in range(20):
-#    delay = random.randint(1, 20)
-#    time.sleep(delay)
-#    app1 = window(config_2)
+setup.root.mainloop()
+if len(setup.exports[0]) >= setup.total:
+    remove_completed_questions = True
+else:
+    remove_completed_questions = False
+for i in range(setup.total):
+    delay = random.randint(setup.min_del, setup.max_del)
+    time.sleep(delay)
+    app1 = window(config_2, setup.exports)
+#    if remove_completed_questions:
+#        setup.exports.pop(app1.questionnum)
+    app1.root.mainloop()
 
 
-print("done")
+print("Well done, you finished your revision!")
+
